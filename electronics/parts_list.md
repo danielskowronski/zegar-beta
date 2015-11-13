@@ -1,0 +1,11 @@
+# Parts list
+  - Arduino Nano v3
+  - PCF8563p - RTC clock
+  - 32.768Hz quartz + 100nF capacitors for RTC clock
+  - 3V buzzer
+  - DHT11 - temperature and humidity sensor
+  - 2x 170 pole breadboard
+  - Keyes_SJoys - PS3 joystick
+  - PCD8544 - old Nokia LCD screen
+  - 4.7K and 2.2K resistors
+  - 9V battery as power source
