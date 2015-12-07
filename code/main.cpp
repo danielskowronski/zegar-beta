@@ -1,7 +1,9 @@
 #include <Wire.h>
 #include <Rtc_Pcf8563.h>
 #include <DHT.h>
+#include <MemoryFree.h>
 
+char cha[25];
 int contrast_val=0;
 
 #define DHTPIN 2 
@@ -171,9 +173,9 @@ void LcdInitialise(void)
   digitalWrite(PIN_RESET, LOW);
   digitalWrite(PIN_RESET, HIGH);
   LcdWrite(LCD_C, 0x21 );  // LCD Extended Commands.
-  LcdWrite(LCD_C, 0xBA+contrast_val );  // Set LCD Vop (Contrast). 
+  LcdWrite(LCD_C, 0xBA+contrast_val+5 );  // Set LCD Vop (Contrast). 
   LcdWrite(LCD_C, 0x04 );  // Set Temp coefficent. //0x04
-  LcdWrite(LCD_C, 0x14 );  // LCD bias mode 1:48. //0x13
+  LcdWrite(LCD_C, 0x13 );  // LCD bias mode 1:48. //0x13
   LcdWrite(LCD_C, 0x20 );  // LCD Basic Commands
   LcdWrite(LCD_C, 0x0C );  // LCD in normal mode.
 }
@@ -193,10 +195,9 @@ void gotoXY(int x, int y)
 }
 void LcdClear(void)
 {
-  char char_array[25];
   for (int i=0;i<6;i++){
     gotoXY(0,i);
-    String("                        ").toCharArray(char_array, 14);LcdString(char_array, false);
+    sprintf(cha, "                        ");LcdString(cha, false);
   }
   
 }
@@ -213,20 +214,29 @@ DHT dht(DHTPIN, DHTTYPE);
 
 void setup(void)
 {
+  Serial.begin(9600);  
+  
   LcdInitialise();
   LcdClear();
 
   rtc.initClock();
   rtc.setDate(30, 1, 12, 0, 15);
-  rtc.setTime(0, 0, 0);
+  rtc.setTime(0, 0, 57);
+  rtc.setAlarm(0,1,99,99);
+  
   dht.begin();
+  
+  
+  pinMode(3,INPUT);
+  pinMode(12, INPUT);  
+  pinMode(10, OUTPUT);
 }
 
-int x, y, b;
+int x, y, b;bool alarm,alarm2;
 bool isUp(){ return y>200; }
 bool isDown(){ return y<-200; }
-bool isLeft(){ return x>200; }
-bool isRight(){ return x<-200; }
+bool isLeft(){ return x<-200; }
+bool isRight(){ return x>200; }
 bool isPressed() { return b==1; }
 
 int mode=0;
@@ -249,40 +259,45 @@ int obetnij(int wejscie, int max, bool symetric=false){
 
 
 void displayClock(){
-  char char_array[25];
+  char* clock = rtc.formatTime(); int p=-14+7;
+  LcdCharacterBig(p+=14,0,clock[0],false);delay(10);
+  LcdCharacterBig(p+=14,0,clock[1],false);delay(10);
+  LcdCharacterBig(p+=14,0,'-',false);delay(10);
+  LcdCharacterBig(p+=14,0,clock[3],false);delay(10);
+  LcdCharacterBig(p+=14,0,clock[4],false);delay(10);
   
-  String clock = rtc.formatTime(); int p=-14+7;
-  LcdCharacterBig(p+=14,0,clock[0],false);
-  LcdCharacterBig(p+=14,0,clock[1],false);
-  LcdCharacterBig(p+=14,0,'-',false);
-  LcdCharacterBig(p+=14,0,clock[3],false);
-  LcdCharacterBig(p+=14,0,clock[4],false);
-
+  gotoXY(0,3);
+  sprintf (cha, "fm: %06i", freeMemory());LcdString(cha);
+  
   gotoXY(0,4);
-  String("sekund: "+String(rtc.getSecond())+"         ").toCharArray(char_array, 12);LcdString(char_array);
+  sprintf (cha, "sekund: %02i", rtc.getSecond());LcdString(cha);
 
   gotoXY(0,5);
-  String(String((int)(dht.readTemperature()))+"'C"+ " | "+String((int)(dht.readHumidity()))+"%").toCharArray(char_array, 12);LcdString(char_array);
-
-  if (budzik){
-   gotoXY(77,4); String("#").toCharArray(char_array, 2);LcdString(char_array,true); 
-   gotoXY(77,5); String("#").toCharArray(char_array, 2);LcdString(char_array, true);  
+  sprintf (cha, "%02i'C | %02i%%", (int)(dht.readTemperature()), (int)(dht.readHumidity()));LcdString(cha);
+  
+  /*if (budzik){
+   sprintf(cha, "#");
+   gotoXY(77,4); LcdString(cha,true); 
+   gotoXY(77,5); LcdString(cha,true);  
   }
+  else{
+   sprintf(cha, " ");
+   gotoXY(77,4); LcdString(cha,false); 
+   gotoXY(77,5); LcdString(cha,false);  
+  }*/
   
   if (b){mode=1;LcdClear();return;}
-  if (x>200  && y>200){
+  if (isRight()&&isUp()){
     budzik=true;
     rtc.enableAlarm();
   }
-  if (x<-200 && y<-200){
+  if (isLeft()&&isDown()){
     budzik=false;
     rtc.clearAlarm();
   }
 }
 
 void showMenu(){
-  char char_array[25];
-
   if (isPressed()) {
     mode=pos_menu+2;
     if (mode==5) mode=0; 
@@ -291,29 +306,29 @@ void showMenu(){
   }
 
   gotoXY(0,0);
-  String(" Menu glowne ").toCharArray(char_array, 14);LcdString(char_array, true);
+  sprintf(cha, " Menu glowne ");LcdString(cha, true);
   gotoXY(0,1);
-  String("    ").toCharArray(char_array, 5);LcdString(char_array, false);
+  sprintf(cha, "    "); LcdString(cha, false);
   gotoXY(20,1);
-  String("budzik").toCharArray(char_array, 7);LcdString(char_array, (pos_menu==0));
+  sprintf(cha, "budzik"); LcdString(cha, (pos_menu==0));
   gotoXY(0,2);
-  String("ust.").toCharArray(char_array, 6);LcdString(char_array, (pos_menu==1));
+  sprintf(cha, "ust."); LcdString(cha, (pos_menu==1));
   gotoXY(30,2);
-  String(" ^  ").toCharArray(char_array, 5);LcdString(char_array, false);
+  sprintf(cha, " ^  "); LcdString(cha, false);
   gotoXY(50,2);
-  String("ust.").toCharArray(char_array, 5);LcdString(char_array, (pos_menu==2));
+  sprintf(cha, "ust."); LcdString(cha, (pos_menu==2));
   gotoXY(0,3);
-  String("czas").toCharArray(char_array, 7);LcdString(char_array, (pos_menu==1));
+  sprintf(cha, "czas"); LcdString(cha, (pos_menu==1));
   gotoXY(30,3);
-  String("< > ").toCharArray(char_array, 5);LcdString(char_array, false);
+  sprintf(cha, "< > "); LcdString(cha, false);
   gotoXY(50,3);
-  String("wysw").toCharArray(char_array, 5);LcdString(char_array, (pos_menu==2));
+  sprintf(cha, "wysw"); LcdString(cha, (pos_menu==2));
   gotoXY(0,4);
-  String("     v").toCharArray(char_array, 7);LcdString(char_array, false);
+  sprintf(cha, "     v"); LcdString(cha, false);
   gotoXY(0,5);
-  String("    ").toCharArray(char_array, 5);LcdString(char_array, false);
+  sprintf(cha, "    "); LcdString(cha, false);
   gotoXY(20,5);
-  String("powrot").toCharArray(char_array, 7);LcdString(char_array, (pos_menu==3));
+  sprintf(cha, "powrot"); LcdString(cha, (pos_menu==3));
   
   if (isUp()) pos_menu=0;
   if (isDown()) pos_menu=3;
@@ -322,43 +337,42 @@ void showMenu(){
 }
 
 void setClock(bool isClock){
-  char char_array[25];
-  
-  String hh;
+  char hh[3];
   if (isClock)
-    hh = ((int)(rtc.getHour()))>10 ? String((int)(rtc.getHour())) : "0"+String((int)(rtc.getHour()));
+    sprintf(hh, "%02i", rtc.getHour());
   else
-    hh = ((int)(rtc.getAlarmHour()))>10 ? String((int)(rtc.getAlarmHour())) : "0"+String((int)(rtc.getAlarmHour()));
-  String mm;
+    sprintf(hh, "%02i", rtc.getAlarmHour());
+  char mm[3];
   if (isClock)
-    mm = ((int)(rtc.getMinute()))>10 ? String((int)(rtc.getMinute())) : "0"+String((int)(rtc.getMinute()));
+    sprintf(mm, "%02i", rtc.getMinute());
   else
-    mm = ((int)(rtc.getAlarmMinute()))>10 ? String((int)(rtc.getAlarmMinute())) : "0"+String((int)(rtc.getAlarmMinute()));
+    sprintf(mm, "%02i", rtc.getAlarmMinute());
 
   gotoXY(0,0);
-  if (isClock){ String(" Ustaw czas ").toCharArray(char_array, 14);LcdString(char_array, true);}
-  else        { String("Ustaw budzik").toCharArray(char_array, 14);LcdString(char_array, true);}
+  if (isClock){ sprintf(cha, " Ustaw czas ");LcdString(cha, true);}
+  else        { sprintf(cha, "Ustaw budzik");LcdString(cha, true);}
+
   gotoXY(0,1);
-  String("                        ").toCharArray(char_array, 14);LcdString(char_array, false);
+  sprintf(cha, "                        ");LcdString(cha, false);
   gotoXY(0,1);
-  (String(hh)).toCharArray(char_array, 3);LcdString(char_array,(pos_setClock==0));
+  LcdString(hh,(pos_setClock==0));
   gotoXY(15,1);
-  String(":").toCharArray(char_array, 2);LcdString(char_array, false);
+  sprintf(cha, ":"); LcdString(cha, false);
   gotoXY(20,1);
-  String(mm).toCharArray(char_array, 3);LcdString(char_array,(pos_setClock==1));
+  LcdString(mm,(pos_setClock==1));
   gotoXY(70,1);
-  String("OK").toCharArray(char_array, 3);LcdString(char_array,(pos_setClock==2));  
+  sprintf(cha, "OK");LcdString(cha,(pos_setClock==2));  
   gotoXY(0,3);
-  String("<> poprz/nast").toCharArray(char_array, 14);LcdString(char_array);
+  sprintf(cha, "<> poprz/nast");LcdString(cha);
   gotoXY(0,4);
-  String("^v wart +/-").toCharArray(char_array, 14);LcdString(char_array);
+  sprintf(cha, "^v wart +/-");LcdString(cha);
   gotoXY(0,5);
-  String("                        ").toCharArray(char_array, 14);LcdString(char_array, false);
+  sprintf(cha, "                        ");LcdString(cha, false);
   
   if (isClock){
     if (pos_setClock==0){
       if (isUp())  rtc.setTime(obetnij(rtc.getHour()+1, 23), rtc.getMinute(), rtc.getSecond());
-      if (isdown()) rtc.setTime(obetnij(rtc.getHour()-1, 23), rtc.getMinute(), rtc.getSecond());
+      if (isDown()) rtc.setTime(obetnij(rtc.getHour()-1, 23), rtc.getMinute(), rtc.getSecond());
     }
     if (pos_setClock==1){
       if (isUp())  rtc.setTime(rtc.getHour(), obetnij(rtc.getMinute()+1,59), rtc.getSecond());
@@ -391,31 +405,25 @@ void setClock(bool isClock){
 }
 
 void setDisplay(){
-  char char_array[25];
-  
-  String contrast; if (contrast_val>=0) contrast="+"; else contrast="-";
-  if (contrast_val>-10 && contrast_val<10) contrast+="0";
-  contrast += String(contrast_val);
-
-  String(" Ustaw. wysw.").toCharArray(char_array, 14);LcdString(char_array, true);
+  sprintf(cha, " Ustaw. wysw.");LcdString(cha, true);
   gotoXY(0,1);
-  String("                        ").toCharArray(char_array, 14);LcdString(char_array, false);
+  sprintf(cha, "                        ");LcdString(cha, false);
   gotoXY(0,1);
-  String("kontrast:").toCharArray(char_array, 11);LcdString(char_array,false);
+  sprintf(cha, "kontrast:");LcdString(cha,false);
   gotoXY(55,1);
-  String(contrast).toCharArray(char_array, 11);LcdString(char_array, (pos_setDisp==0));
+  sprintf(cha, "%02i", contrast_val);LcdString(cha, (pos_setDisp==0));
   gotoXY(0,2);
-  String("OK").toCharArray(char_array, 3);LcdString(char_array,(pos_setDisp==1));  
+  sprintf(cha, "OK");LcdString(cha,(pos_setDisp==1));  
   gotoXY(0,4);
-  String("<> poprz/nast").toCharArray(char_array, 14);LcdString(char_array);
+  sprintf(cha, "<> poprz/nast");LcdString(cha);
   gotoXY(0,5);
-  String("^v wart +/-").toCharArray(char_array, 14);LcdString(char_array);
+  sprintf(cha, "^v wart +/-");LcdString(cha);
   
-  if (pos_setClock==0){
-    if (isUp())  contrast_val=obetnij(contrast_val+1, 10, true);
-    if (isDown()) contrast_val=obetnij(contrast_val-1, 10, true);
+  if (pos_setDisp==0){
+    if (isUp())  { contrast_val=obetnij(contrast_val+1, 5, true); LcdInitialise(); }
+    if (isDown()) { contrast_val=obetnij(contrast_val-1, 5, true); LcdInitialise(); }
   }
-  if (pos_setClock==1){
+  if (pos_setDisp==1){
     if (isPressed()) {
       mode=1;
       LcdClear();
@@ -428,16 +436,29 @@ void setDisplay(){
   if (isLeft()) pos_setDisp--;
   if (pos_setDisp>1) pos_setDisp=0;
   if (pos_setDisp<0) pos_setDisp=1;
-  
 }
 
-void loop(void)
-{
+void loop(void){  
+  //Serial.println(mode);
+  
   x= 512-analogRead(1);
   y= 512-analogRead(0);
-  pinMode(12, INPUT);
   b= not (digitalRead(12));
-
+  
+  /*alarm = not digitalRead(3);if(alarm){ alarm2=true;rtc.clearAlarm();}
+  if (alarm2){
+   if(isRight()){alarm2=false;rtc.clearAlarm();}
+   else{
+     for (int i=50; i<255; i+=50) {
+       analogWrite(10  , i); 
+       delay(5);
+     }
+     analogWrite(10  , 0); 
+   }
+   
+   return;
+  }*/
+  
   if (mode==0)
     displayClock();
   else if (mode==1) 
