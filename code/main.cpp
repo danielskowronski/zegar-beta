@@ -227,7 +227,11 @@ int pos_menu=0;
 int pos_setClock=0;
 int pos_setDisp=0;
 bool budzik=false;
-int alarmHH=0, alarmMM=0; bool alarmENABLED=false;
+int alarmHH=0, alarmMM=0; bool alarmENABLED=false, alarmSNOOZE=false, alarmCOMPLETED=false, alarmACTIVE=false;
+
+void enableAlarm() { alarmENABLED=true; alarmCOMPLETED=false; }
+void disableAlarm() { alarmENABLED=false; alarmCOMPLETED=true; }
+void completeAlarm() { alarmCOMPLETED=true; }
 
 void setup(void)
 {
@@ -241,7 +245,8 @@ void setup(void)
   rtc.setTime(0, 0, 57);
   //rtc.setAlarm(0,1,99,99);
   //rtc.enableAlarm();
-  alarmHH=0;alarmMM=1;alarmENABLED=true;
+  alarmHH=0;alarmMM=1;
+  enableAlarm();
   
   dht.begin();
   
@@ -290,14 +295,23 @@ void displayClock(){
    gotoXY(77,4); LcdString(cha,false); 
    gotoXY(77,5); LcdString(cha,false);  
   }
+  if (alarmACTIVE){
+    sprintf(cha, "budzik! <v");
+   gotoXY(0,3);LcdString(cha, true);
+  }
+  else{
+    sprintf(cha, EMPTY_LINE);
+    gotoXY(0,3);LcdString(cha);
+  }
   
   if (b){mode=1;modechanged=true;LcdClear();return;}
   if (isRight()&&isUp()){
-    alarmENABLED=true;
+    enableAlarm();
     //rtc.enableAlarm();
   }
   if (isLeft()&&isDown()){
-    alarmENABLED=false;
+    if (alarmACTIVE) alarmCOMPLETED=true;
+    else  disableAlarm();
     //rtc.clearAlarm();
   }
 }
@@ -461,12 +475,22 @@ void setDisplay(){
   if (pos_setDisp<0) pos_setDisp=1;
 }
 void parseAlarm(){
-  if (alarmENABLED && rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM){
-    for (int i=50; i<255; i+=10) {
-       analogWrite(10  , i); 
-       delay(1);
-     }
-     analogWrite(10  , 0); 
+  if (! (rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM)){
+    alarmCOMPLETED=false;
+  }
+  if (!alarmCOMPLETED && alarmENABLED && rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM){
+    int toneVal;float sinVal;
+    for (int x=0; x<180; x++) {
+      sinVal = (sin(x*(3.1412/180)));
+      toneVal = 3000+(int(sinVal*1000));
+      tone(10, toneVal);
+    }
+    tone(10, 0);
+    alarmACTIVE=true;
+  }
+  else{
+    noTone(10);
+    alarmACTIVE=false;
   }
 }
 void loop(void){    
@@ -487,5 +511,5 @@ void loop(void){
   else if (mode==4) 
      setDisplay(); 
   
-  delay(100);
+  delay(50);
 }
