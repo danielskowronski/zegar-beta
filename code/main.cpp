@@ -215,28 +215,7 @@ void LcdWrite(byte dc, byte data)
 Rtc_Pcf8563 rtc;
 DHT dht(DHTPIN, DHTTYPE);
 
-void setup(void)
-{
-  Serial.begin(9600);  
-  
-  LcdInitialise();
-  LcdClear();
-
-  rtc.initClock();
-  rtc.setDate(30, 1, 12, 0, 15);
-  rtc.setTime(0, 0, 57);
-  rtc.setAlarm(0,1,99,99);
-  rtc.enableAlarm();
-  
-  dht.begin();
-  
-  
-  pinMode(3,INPUT);
-  pinMode(12, INPUT);  
-  pinMode(10, OUTPUT);
-}
-
-int x, y, b;bool alarm,alarm2;
+int x, y, b;
 bool isUp(){ return y>200; }
 bool isDown(){ return y<-200; }
 bool isLeft(){ return x<-200; }
@@ -248,6 +227,28 @@ int pos_menu=0;
 int pos_setClock=0;
 int pos_setDisp=0;
 bool budzik=false;
+int alarmHH=0, alarmMM=0; bool alarmENABLED=false;
+
+void setup(void)
+{
+  Serial.begin(9600);  
+  
+  LcdInitialise();
+  LcdClear();
+
+  rtc.initClock();
+  rtc.setDate(30, 1, 12, 0, 15);
+  rtc.setTime(0, 0, 57);
+  //rtc.setAlarm(0,1,99,99);
+  //rtc.enableAlarm();
+  alarmHH=0;alarmMM=1;alarmENABLED=true;
+  
+  dht.begin();
+  
+  pinMode(3,INPUT);
+  pinMode(12, INPUT);  
+  pinMode(10, OUTPUT);
+}
 
 int obetnij(int wejscie, int max, bool symetric=false){
   if (symetric){
@@ -270,8 +271,8 @@ void displayClock(){
   LcdCharacterBig(p+=14,0,clock[3],false);delay(10);
   LcdCharacterBig(p+=14,0,clock[4],false);delay(10);
   
-  gotoXY(0,3);
-  sprintf (cha, "fm: %06i", freeMemory());LcdString(cha);
+  //gotoXY(0,3);
+  //sprintf (cha, "fm: %06i", freeMemory());LcdString(cha);
   
   gotoXY(0,4);
   sprintf (cha, "sekund: %02i", rtc.getSecond());LcdString(cha);
@@ -279,7 +280,7 @@ void displayClock(){
   gotoXY(0,5);
   sprintf (cha, "%02i'C | %02i%%", (int)(dht.readTemperature()), (int)(dht.readHumidity()));LcdString(cha);
   
-  if (budzik){
+  if (alarmENABLED){
    sprintf(cha, "#");
    gotoXY(77,4); LcdString(cha,true); 
    gotoXY(77,5); LcdString(cha,true);  
@@ -292,12 +293,12 @@ void displayClock(){
   
   if (b){mode=1;modechanged=true;LcdClear();return;}
   if (isRight()&&isUp()){
-    budzik=true;
-    rtc.enableAlarm();
+    alarmENABLED=true;
+    //rtc.enableAlarm();
   }
   if (isLeft()&&isDown()){
-    budzik=false;
-    rtc.clearAlarm();
+    alarmENABLED=false;
+    //rtc.clearAlarm();
   }
 }
 
@@ -346,21 +347,18 @@ void setClock(bool isClock){
   if (isClock)
     sprintf(hh, "%02i", rtc.getHour());
   else
-    sprintf(hh, "%02i", rtc.getAlarmHour());
+    sprintf(hh, "%02i", alarmHH);
   char mm[3];
   if (isClock)
     sprintf(mm, "%02i", rtc.getMinute());
   else
-    sprintf(mm, "%02i", rtc.getAlarmMinute());
+    sprintf(mm, "%02i", alarmMM);
 
   if (modechanged){
     if (isClock){ sprintf(cha, " Ustaw czas ");}
     else        { sprintf(cha, "Ustaw budzik");}
     gotoXY(0,0);
     LcdString(cha, true);
-  }
-
-  if (modechanged){
     gotoXY(0,1);
     sprintf(cha, EMPTY_LINE);LcdString(cha, false);
   }
@@ -397,12 +395,12 @@ void setClock(bool isClock){
   }
   else{
     if (pos_setClock==0){
-      if (isUp())  rtc.setAlarm(rtc.getAlarmMinute(), obetnij(rtc.getAlarmHour()+1, 23), 0xFF, 0xFF);
-      if (isDown()) rtc.setAlarm(rtc.getAlarmMinute(), obetnij(rtc.getAlarmHour()-1, 23), 0xFF, 0xFF);
+      if (isUp())   alarmHH = obetnij(alarmHH+1, 23);
+      if (isDown()) alarmHH = obetnij(alarmHH-1, 23);
     }
     if (pos_setClock==1){
-      if (isUp())  rtc.setAlarm(obetnij(rtc.getAlarmMinute()+1,59), rtc.getAlarmHour(), 0xFF, 0xFF);
-      if (isDown()) rtc.setAlarm(obetnij(rtc.getAlarmMinute()-1,59), rtc.getAlarmHour(), 0xFF, 0xFF);   
+      if (isUp())   alarmMM = obetnij(alarmMM+1,59);
+      if (isDown()) alarmMM = obetnij(alarmMM-1,59);
     }    
   }
   
@@ -462,27 +460,21 @@ void setDisplay(){
   if (pos_setDisp>1) pos_setDisp=0;
   if (pos_setDisp<0) pos_setDisp=1;
 }
-
-void loop(void){  
-  //Serial.println(mode);
-  
+void parseAlarm(){
+  if (alarmENABLED && rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM){
+    for (int i=50; i<255; i+=10) {
+       analogWrite(10  , i); 
+       delay(1);
+     }
+     analogWrite(10  , 0); 
+  }
+}
+void loop(void){    
   x= 512-analogRead(1);
   y= 512-analogRead(0);
   b= not (digitalRead(12));
-  
-  /*alarm = not digitalRead(3);if(alarm){ alarm2=true;rtc.clearAlarm();}
-  if (alarm2){
-   if(isRight()){alarm2=false;rtc.clearAlarm();}
-   else{
-     for (int i=50; i<255; i+=50) {
-       analogWrite(10  , i); 
-       delay(5);
-     }
-     analogWrite(10  , 0); 
-   }
-   
-   //return;
-  }*/
+
+  parseAlarm();
   
   if (mode==0)
     displayClock();
