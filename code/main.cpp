@@ -2,6 +2,7 @@
 #include <Rtc_Pcf8563.h>
 #include <DHT.h>
 #include <MemoryFree.h>
+#include <avr/pgmspace.h>
 
 char cha[25];
 int contrast_val=0;
@@ -10,7 +11,7 @@ int contrast_val=0;
 #define DHTTYPE DHT11
 
 #define PIN_SCE   7
-#define PIN_RESET 13
+#define PIN_RESET 8 //13
 #define PIN_DC    6
 #define PIN_SDIN  5
 #define PIN_SCLK  4
@@ -21,7 +22,9 @@ int contrast_val=0;
 #define LCD_X     84
 #define LCD_Y     48
 
-static const byte ASCII[][5] =
+#define EMPTY_LINE "            "
+
+static const byte ASCII[][5] PROGMEM  =
 {
  {0x00, 0x00, 0x00, 0x00, 0x00} // 20  
 ,{0x00, 0x00, 0x5f, 0x00, 0x00} // 21 !
@@ -120,7 +123,7 @@ static const byte ASCII[][5] =
 ,{0x10, 0x08, 0x08, 0x10, 0x08} // 7e ←
 ,{0x78, 0x46, 0x41, 0x46, 0x78} // 7f →
 };
-static const byte BigNumber[][42] =
+static const byte BigNumber[][42] PROGMEM  =
 {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   // -
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0xe0, 0xe0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00,   // .
@@ -144,7 +147,7 @@ void LcdCharacter(char character, bool negate)
   if (negate) LcdWrite(LCD_D, 0xff); else LcdWrite(LCD_D, 0x00);
   for (int index = 0; index < 5; index++)
   {
-    byte b=ASCII[character - 0x20][index]; if (negate) b=~b;
+    byte b=pgm_read_byte(&(ASCII[character - 0x20][index]));; if (negate) b=~b;
     LcdWrite(LCD_D, b);
   }
   if (negate) LcdWrite(LCD_D, 0xff); else LcdWrite(LCD_D, 0x00);
@@ -157,7 +160,7 @@ void LcdCharacterBig (int x, int y,char character, bool negate){
 
   for (int index = 0; index < 42; index++) {
     gotoXY(x+(index%14), y+index/14);
-    byte b=BigNumber[c][index]; if (negate) b=~b;
+    byte b=pgm_read_byte(&(BigNumber[c][index]));; if (negate) b=~b;
     LcdWrite(LCD_D, b);
   }
 }
@@ -173,7 +176,7 @@ void LcdInitialise(void)
   digitalWrite(PIN_RESET, LOW);
   digitalWrite(PIN_RESET, HIGH);
   LcdWrite(LCD_C, 0x21 );  // LCD Extended Commands.
-  LcdWrite(LCD_C, 0xBA+contrast_val+5 );  // Set LCD Vop (Contrast). 
+  LcdWrite(LCD_C, 0xBA+contrast_val+7 );  // Set LCD Vop (Contrast). 
   LcdWrite(LCD_C, 0x04 );  // Set Temp coefficent. //0x04
   LcdWrite(LCD_C, 0x13 );  // LCD bias mode 1:48. //0x13
   LcdWrite(LCD_C, 0x20 );  // LCD Basic Commands
@@ -197,7 +200,7 @@ void LcdClear(void)
 {
   for (int i=0;i<6;i++){
     gotoXY(0,i);
-    sprintf(cha, "                        ");LcdString(cha, false);
+    sprintf(cha, EMPTY_LINE);LcdString(cha, false);
   }
   
 }
@@ -223,6 +226,7 @@ void setup(void)
   rtc.setDate(30, 1, 12, 0, 15);
   rtc.setTime(0, 0, 57);
   rtc.setAlarm(0,1,99,99);
+  rtc.enableAlarm();
   
   dht.begin();
   
@@ -239,7 +243,7 @@ bool isLeft(){ return x<-200; }
 bool isRight(){ return x>200; }
 bool isPressed() { return b==1; }
 
-int mode=0;
+int mode=0;bool modechanged=false;
 int pos_menu=0;
 int pos_setClock=0;
 int pos_setDisp=0;
@@ -275,7 +279,7 @@ void displayClock(){
   gotoXY(0,5);
   sprintf (cha, "%02i'C | %02i%%", (int)(dht.readTemperature()), (int)(dht.readHumidity()));LcdString(cha);
   
-  /*if (budzik){
+  if (budzik){
    sprintf(cha, "#");
    gotoXY(77,4); LcdString(cha,true); 
    gotoXY(77,5); LcdString(cha,true);  
@@ -284,9 +288,9 @@ void displayClock(){
    sprintf(cha, " ");
    gotoXY(77,4); LcdString(cha,false); 
    gotoXY(77,5); LcdString(cha,false);  
-  }*/
+  }
   
-  if (b){mode=1;LcdClear();return;}
+  if (b){mode=1;modechanged=true;LcdClear();return;}
   if (isRight()&&isUp()){
     budzik=true;
     rtc.enableAlarm();
@@ -300,6 +304,7 @@ void displayClock(){
 void showMenu(){
   if (isPressed()) {
     mode=pos_menu+2;
+    modechanged=true;
     if (mode==5) mode=0; 
     LcdClear();
     return;  
@@ -348,12 +353,18 @@ void setClock(bool isClock){
   else
     sprintf(mm, "%02i", rtc.getAlarmMinute());
 
-  gotoXY(0,0);
-  if (isClock){ sprintf(cha, " Ustaw czas ");LcdString(cha, true);}
-  else        { sprintf(cha, "Ustaw budzik");LcdString(cha, true);}
+  if (modechanged){
+    if (isClock){ sprintf(cha, " Ustaw czas ");}
+    else        { sprintf(cha, "Ustaw budzik");}
+    gotoXY(0,0);
+    LcdString(cha, true);
+  }
 
-  gotoXY(0,1);
-  sprintf(cha, "                        ");LcdString(cha, false);
+  if (modechanged){
+    gotoXY(0,1);
+    sprintf(cha, EMPTY_LINE);LcdString(cha, false);
+  }
+  
   gotoXY(0,1);
   LcdString(hh,(pos_setClock==0));
   gotoXY(15,1);
@@ -362,12 +373,17 @@ void setClock(bool isClock){
   LcdString(mm,(pos_setClock==1));
   gotoXY(70,1);
   sprintf(cha, "OK");LcdString(cha,(pos_setClock==2));  
-  gotoXY(0,3);
-  sprintf(cha, "<> poprz/nast");LcdString(cha);
-  gotoXY(0,4);
-  sprintf(cha, "^v wart +/-");LcdString(cha);
-  gotoXY(0,5);
-  sprintf(cha, "                        ");LcdString(cha, false);
+  
+  if (modechanged){
+    gotoXY(0,3);
+    sprintf(cha, "<> poprz/nast");LcdString(cha);
+    gotoXY(0,4);
+    sprintf(cha, "^v wart +/-");LcdString(cha);
+    gotoXY(0,5);
+    sprintf(cha, EMPTY_LINE);LcdString(cha, false);
+    
+    modechanged=false;
+  }
   
   if (isClock){
     if (pos_setClock==0){
@@ -389,9 +405,11 @@ void setClock(bool isClock){
       if (isDown()) rtc.setAlarm(obetnij(rtc.getAlarmMinute()-1,59), rtc.getAlarmHour(), 0xFF, 0xFF);   
     }    
   }
+  
   if (pos_setClock==2){
     if (isPressed()) {
       mode=1;
+      modechanged=true;
       LcdClear();
       return;
     }
@@ -405,19 +423,26 @@ void setClock(bool isClock){
 }
 
 void setDisplay(){
-  sprintf(cha, " Ustaw. wysw.");LcdString(cha, true);
-  gotoXY(0,1);
-  sprintf(cha, "                        ");LcdString(cha, false);
+  if (modechanged){
+    gotoXY(0,0);
+    sprintf(cha, " Ustaw. wysw.");LcdString(cha, true);
+    gotoXY(0,1);
+    sprintf(cha, EMPTY_LINE);LcdString(cha, false);
+  }
   gotoXY(0,1);
   sprintf(cha, "kontrast:");LcdString(cha,false);
   gotoXY(55,1);
   sprintf(cha, "%02i", contrast_val);LcdString(cha, (pos_setDisp==0));
   gotoXY(0,2);
   sprintf(cha, "OK");LcdString(cha,(pos_setDisp==1));  
-  gotoXY(0,4);
-  sprintf(cha, "<> poprz/nast");LcdString(cha);
-  gotoXY(0,5);
-  sprintf(cha, "^v wart +/-");LcdString(cha);
+  if (modechanged){
+    gotoXY(0,4);
+    sprintf(cha, "<> poprz/nast");LcdString(cha);
+    gotoXY(0,5);
+    sprintf(cha, "^v wart +/-");LcdString(cha);
+
+    modechanged=false;
+  }
   
   if (pos_setDisp==0){
     if (isUp())  { contrast_val=obetnij(contrast_val+1, 5, true); LcdInitialise(); }
@@ -426,11 +451,11 @@ void setDisplay(){
   if (pos_setDisp==1){
     if (isPressed()) {
       mode=1;
+      modechanged=true;
       LcdClear();
       return;
     }
   }
-  
   
   if (isRight())  pos_setDisp++;
   if (isLeft()) pos_setDisp--;
@@ -456,7 +481,7 @@ void loop(void){
      analogWrite(10  , 0); 
    }
    
-   return;
+   //return;
   }*/
   
   if (mode==0)
@@ -469,6 +494,6 @@ void loop(void){
      setClock(true); //setClock
   else if (mode==4) 
      setDisplay(); 
-
+  
   delay(100);
 }
