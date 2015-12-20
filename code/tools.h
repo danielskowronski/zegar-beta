@@ -3,4 +3,7 @@
 
 int obetnij(int wejscie, int max, bool symetric=false);
 
+extern int lastSec;
+void transmitThm();
+
 #endif

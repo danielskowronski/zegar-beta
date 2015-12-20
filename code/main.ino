@@ -3,6 +3,7 @@
 #include "display.h"
 #include "ui.h"
 #include "alarm.h"
+#include "tools.h"
 
 void setup(void) {
   Serial.begin(9600);  
@@ -29,6 +30,7 @@ void setup(void) {
 void loop(void){    
   readJoystick();
   parseAlarm();
+  transmitThm();
   
   if (mode==0)
     displayClock();

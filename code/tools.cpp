@@ -1,4 +1,6 @@
 #include "tools.h"
+#include "config.h"
+
 
 int obetnij(int wejscie, int max, bool symetric){
   if (symetric){
@@ -11,3 +13,18 @@ int obetnij(int wejscie, int max, bool symetric){
   }
   return wejscie;
 }
+
+extern int lastSec=0;
+void transmitThm(){
+  int currSec = rtc.getSecond();
+  if (currSec%2==0) return;
+  
+  if (currSec!=lastSec){
+    Serial.print(rtc.formatTime());
+    Serial.print(" -> ");
+    Serial.print(dht.readTemperature());
+    Serial.println("'C");
+  }
+  lastSec=currSec;
+}
+

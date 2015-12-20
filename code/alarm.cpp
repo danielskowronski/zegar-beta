@@ -16,9 +16,9 @@ void parseAlarm(){
     alarmCOMPLETED=false;
   }
   if (!alarmCOMPLETED && alarmENABLED && rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM){
-    analogWrite(LCD_BACKLIGHT, 50);
-    delay(5);
     analogWrite(LCD_BACKLIGHT, 255);
+    delay(25);
+    analogWrite(LCD_BACKLIGHT, 20);
     alarmINT=true;
     alarmACTIVE=true;
   }
