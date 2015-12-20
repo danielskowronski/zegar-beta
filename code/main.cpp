@@ -3,9 +3,13 @@
 #include <DHT.h>
 #include <MemoryFree.h>
 #include <avr/pgmspace.h>
+#include <avr/interrupt.h>
+
+#define BUZZ_PIN 10
 
 char cha[25];
 int contrast_val=0;
+int jasnosc_val=5;
 
 #define DHTPIN 2 
 #define DHTTYPE DHT11
@@ -233,6 +237,45 @@ void enableAlarm() { alarmENABLED=true; alarmCOMPLETED=false; }
 void disableAlarm() { alarmENABLED=false; alarmCOMPLETED=true; }
 void completeAlarm() { alarmCOMPLETED=true; }
 
+//each row = how long hold [0]=>LOW,[1]=>HIGH state of buzzer of sequent tone (*,0 => silence)
+static const unsigned int czasy[][2]{
+  480,750,
+  1210,1470,
+  500,2220,
+  5000,0,
+  480,750,
+  1210,1470,
+  500,2220,
+  230,410,
+  250,720,
+  1020,1690,
+  5000,0  
+};
+//each value = how many times repeat each tone (currently every tone is approx 0.5sec)
+static const int powt[]{
+  409,187,187,100,409,187,187,1064,515,187,100
+};
+static volatile long  int tick=0, stepp=0, todo=powt[stepp];
+static volatile bool alarmINT=false;
+ISR(TIMER1_COMPA_vect){
+  if (alarmINT){
+    if (todo>=0){
+      if (tick<czasy[stepp][0]) { digitalWrite(BUZZ_PIN, LOW);} 
+      else if (tick>=czasy[stepp][0]&&tick<czasy[stepp][0]+czasy[stepp][1]) {digitalWrite(BUZZ_PIN, HIGH);}
+      else  { digitalWrite(BUZZ_PIN, LOW);tick=-125;/*will be zeroed in next line!*/ todo--;}    
+      tick+=125;
+    }
+    else{
+      stepp++; if (stepp>10) stepp=0;
+      todo=powt[stepp];
+    }
+  }
+  else{
+    tick=0; stepp=0; todo=powt[stepp];
+  }
+}
+
+
 void setup(void)
 {
   Serial.begin(9600);  
@@ -242,9 +285,7 @@ void setup(void)
 
   rtc.initClock();
   rtc.setDate(30, 1, 12, 0, 15);
-  rtc.setTime(0, 0, 57);
-  //rtc.setAlarm(0,1,99,99);
-  //rtc.enableAlarm();
+  rtc.setTime(0, 0, 50);
   alarmHH=0;alarmMM=1;
   enableAlarm();
   
@@ -253,6 +294,18 @@ void setup(void)
   pinMode(3,INPUT);
   pinMode(12, INPUT);  
   pinMode(10, OUTPUT);
+
+  pinMode(11, OUTPUT);
+
+//second interrupt because first is used by dht library!
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1  = 0;
+  OCR1A = 249;
+  TCCR1B |= (1 << WGM12);
+  TCCR1B |= (1 << CS21);
+  TIMSK1 |= (1 << OCIE1A);
+  sei();
 }
 
 int obetnij(int wejscie, int max, bool symetric=false){
@@ -307,12 +360,10 @@ void displayClock(){
   if (b){mode=1;modechanged=true;LcdClear();return;}
   if (isRight()&&isUp()){
     enableAlarm();
-    //rtc.enableAlarm();
   }
   if (isLeft()&&isDown()){
     if (alarmACTIVE) alarmCOMPLETED=true;
     else  disableAlarm();
-    //rtc.clearAlarm();
   }
 }
 
@@ -443,10 +494,14 @@ void setDisplay(){
   }
   gotoXY(0,1);
   sprintf(cha, "kontrast:");LcdString(cha,false);
-  gotoXY(55,1);
+  gotoXY(60,1);
   sprintf(cha, "%02i", contrast_val);LcdString(cha, (pos_setDisp==0));
   gotoXY(0,2);
-  sprintf(cha, "OK");LcdString(cha,(pos_setDisp==1));  
+  sprintf(cha, "jasnosc:");LcdString(cha,false);
+  gotoXY(60,2);
+  sprintf(cha, "%02i", jasnosc_val);LcdString(cha, (pos_setDisp==1));
+  gotoXY(0,3);
+  sprintf(cha, "OK");LcdString(cha,(pos_setDisp==2));  
   if (modechanged){
     gotoXY(0,4);
     sprintf(cha, "<> poprz/nast");LcdString(cha);
@@ -460,7 +515,11 @@ void setDisplay(){
     if (isUp())  { contrast_val=obetnij(contrast_val+1, 5, true); LcdInitialise(); }
     if (isDown()) { contrast_val=obetnij(contrast_val-1, 5, true); LcdInitialise(); }
   }
-  if (pos_setDisp==1){
+  else if (pos_setDisp==1){
+    if (isUp())   { jasnosc_val=obetnij(jasnosc_val+1, 10); analogWrite(11, 10*jasnosc_val); }
+    if (isDown()) { jasnosc_val=obetnij(jasnosc_val-1, 10); analogWrite(11, 10*jasnosc_val); }
+  }
+  if (pos_setDisp==2){
     if (isPressed()) {
       mode=1;
       modechanged=true;
@@ -471,8 +530,8 @@ void setDisplay(){
   
   if (isRight())  pos_setDisp++;
   if (isLeft()) pos_setDisp--;
-  if (pos_setDisp>1) pos_setDisp=0;
-  if (pos_setDisp<0) pos_setDisp=1;
+  if (pos_setDisp>2) pos_setDisp=0;
+  if (pos_setDisp<0) pos_setDisp=2;
 }
 void parseAlarm(){
   if (! (rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM)){
@@ -480,17 +539,22 @@ void parseAlarm(){
   }
   if (!alarmCOMPLETED && alarmENABLED && rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM){
     int toneVal;float sinVal;
-    for (int x=0; x<180; x++) {
+    analogWrite(11, 50);
+    /*for (int x=0; x<180; x++) {
       sinVal = (sin(x*(3.1412/180)));
       toneVal = 3000+(int(sinVal*1000));
       tone(10, toneVal);
-    }
+    } //<<*/
+    alarmINT=true;
+    analogWrite(11, 255);
     tone(10, 0);
     alarmACTIVE=true;
   }
   else{
+    analogWrite(11, jasnosc_val*10);
     noTone(10);
     alarmACTIVE=false;
+    alarmINT=false;
   }
 }
 void loop(void){    
@@ -511,5 +575,5 @@ void loop(void){
   else if (mode==4) 
      setDisplay(); 
   
-  delay(50);
+  delay(75);
 }
