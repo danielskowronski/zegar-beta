@@ -5,8 +5,17 @@
 #include "config.h"
 #include <avr/interrupt.h>
 
+class timeObj{
+  public:
+    timeObj(){};
+    timeObj(int h, int m);
+    bool isEqual(int h, int m);
+    void addMinutes(int n);
+    int h, m;
+};
+
 extern bool budzik;
-extern int alarmHH, alarmMM; 
+extern timeObj alarm, alarmTmp; 
 extern bool alarmENABLED, alarmSNOOZE, alarmCOMPLETED, alarmACTIVE;
 extern volatile bool alarmINT;
 

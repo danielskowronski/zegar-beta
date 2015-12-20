@@ -27,4 +27,6 @@ extern Rtc_Pcf8563 rtc;
 #define DHTTYPE DHT11
 extern DHT dht;
 
+#define SNOOZE_TIME 9
+
 #endif

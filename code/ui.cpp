@@ -23,7 +23,11 @@ extern int mode=0;
 extern bool modechanged=false;
 extern int pos_menu=0, pos_setClock=0, pos_setDisp=0;
 
+extern bool PAR = true;
+
 void displayClock(){
+  PAR = not PAR;
+  
   char* clock = rtc.formatTime(); int p=-14+7;
   LcdCharacterBig(p+=14,0,clock[0],false);delay(10);
   LcdCharacterBig(p+=14,0,clock[1],false);delay(10);
@@ -52,21 +56,37 @@ void displayClock(){
   }
   
   if (alarmACTIVE){
-    sprintf(cha, "budzik! <v");
-   gotoXY(0,3);LcdString(cha, true);
+    sprintf(cha, "   budzik   ");
+    gotoXY(0,3);LcdString(cha, PAR);
+  }
+  else if (alarmSNOOZE){
+    sprintf(cha, "   drzemka  ");
+    gotoXY(0,3);LcdString(cha, PAR);
   }
   else{
     sprintf(cha, EMPTY_LINE);
     gotoXY(0,3);LcdString(cha);
   }
-  
-  if (b){mode=1;modechanged=true;LcdClear();return;}
-  if (isRight()&&isUp()){
-    enableAlarm();
+
+  if (alarmINT){
+    if(b){
+      alarmCOMPLETED=true;
+      alarmACTIVE=false;
+      alarmINT=false;
+      alarmSNOOZE=true;
+      alarmTmp.addMinutes(SNOOZE_TIME);
+    }
+  }
+  else{
+    if (b){mode=1;modechanged=true;LcdClear();return;}
+    if (isRight()&&isUp()){
+      enableAlarm();
+    }
   }
   if (isLeft()&&isDown()){
     if (alarmACTIVE) alarmCOMPLETED=true;
     else  disableAlarm();
+    alarmSNOOZE=false;
   }
 }
 
@@ -115,12 +135,12 @@ void setClock(bool isClock){
   if (isClock)
     sprintf(hh, "%02i", rtc.getHour());
   else
-    sprintf(hh, "%02i", alarmHH);
+    sprintf(hh, "%02i", alarm.h);
   char mm[3];
   if (isClock)
     sprintf(mm, "%02i", rtc.getMinute());
   else
-    sprintf(mm, "%02i", alarmMM);
+    sprintf(mm, "%02i", alarm.m);
 
   if (modechanged){
     if (isClock){ sprintf(cha, " Ustaw czas ");}
@@ -163,13 +183,14 @@ void setClock(bool isClock){
   }
   else{
     if (pos_setClock==0){
-      if (isUp())   alarmHH = obetnij(alarmHH+1, 23);
-      if (isDown()) alarmHH = obetnij(alarmHH-1, 23);
+      if (isUp())   alarm.h = obetnij(alarm.h+1, 23);
+      if (isDown()) alarm.h = obetnij(alarm.h-1, 23);
     }
     if (pos_setClock==1){
-      if (isUp())   alarmMM = obetnij(alarmMM+1,59);
-      if (isDown()) alarmMM = obetnij(alarmMM-1,59);
+      if (isUp())   alarm.m = obetnij(alarm.m+1,59);
+      if (isDown()) alarm.m = obetnij(alarm.m-1,59);
     }    
+    alarmTmp = alarm;
   }
   
   if (pos_setClock==2){

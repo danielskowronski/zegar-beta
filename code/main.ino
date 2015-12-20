@@ -13,9 +13,9 @@ void setup(void) {
 
   rtc.initClock();
   rtc.setDate(30, 1, 12, 0, 15);
-  rtc.setTime(0, 0, 59);
+  rtc.setTime(0, 1, 59);
   
-  alarmHH=0;alarmMM=1;
+  alarm = alarmTmp = timeObj(0,1);
   enableAlarm();
 
   dht.begin();

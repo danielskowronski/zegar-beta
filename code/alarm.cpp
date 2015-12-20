@@ -2,8 +2,19 @@
 #include "config.h"
 #include "display.h" //jasnosc_val
 
+timeObj::timeObj(int h, int m){ this->h=h; this->m=m; }
+bool timeObj::isEqual(int h, int m){ return this->h==h&&this->m==m; }
+void timeObj::addMinutes(int n){
+  m+=n;
+  while (m>=60){
+    m-=60;
+    h++;
+  }
+  h&=24;
+}
+
 extern bool budzik=false;
-extern int alarmHH=0, alarmMM=0; 
+extern timeObj alarm=timeObj(), alarmTmp=timeObj();
 extern bool alarmENABLED=false, alarmSNOOZE=false, alarmCOMPLETED=false, alarmACTIVE=false;
 extern volatile bool alarmINT=false;
 
@@ -12,20 +23,24 @@ void disableAlarm() { alarmENABLED=false; alarmCOMPLETED=true; }
 void completeAlarm() { alarmCOMPLETED=true; }
 
 void parseAlarm(){
-  if (! (rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM)){
-    alarmCOMPLETED=false;
+  if (alarmENABLED && alarmTmp.isEqual(rtc.getHour(),rtc.getMinute())){
+    alarmINT=true;
+    alarmACTIVE=true;
   }
-  if (!alarmCOMPLETED && alarmENABLED && rtc.getHour()==alarmHH && rtc.getMinute()==alarmMM){
+  if (!alarmCOMPLETED/* || alarmSNOOZE*/){
     analogWrite(LCD_BACKLIGHT, 255);
     delay(25);
     analogWrite(LCD_BACKLIGHT, 20);
-    alarmINT=true;
-    alarmACTIVE=true;
   }
   else{
     analogWrite(LCD_BACKLIGHT, jasnosc_val*10);
     alarmACTIVE=false;
     alarmINT=false;
+  }
+
+  if (!alarmSNOOZE){
+    alarmTmp=alarm;
+    delay(10);
   }
 }
 
