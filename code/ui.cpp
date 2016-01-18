@@ -28,7 +28,7 @@ extern bool PAR = true;
 void displayClock(){
   PAR = not PAR;
   
-  char* clock = rtc.formatTime(); int p=-14+7;
+  char* clock = rtc.formatTime(); int p=-14/*+7*/;
   LcdCharacterBig(p+=14,0,clock[0],false);delay(10);
   LcdCharacterBig(p+=14,0,clock[1],false);delay(10);
   LcdCharacterBig(p+=14,0,'-',false);delay(10);
@@ -37,9 +37,13 @@ void displayClock(){
   
   //gotoXY(0,3);
   //sprintf (cha, "fm: %06i", freeMemory());LcdString(cha);
+
+  //gotoXY(77,1); sprintf (cha, "%01i", rtc.getSecond()/10);LcdString(cha);
+  //gotoXY(77,2); sprintf (cha, "%01i", rtc.getSecond()%10);LcdString(cha);
+  gotoXY(70,2); sprintf (cha, "%02i", rtc.getSecond());LcdString(cha,true);
   
   gotoXY(0,4);
-  sprintf (cha, "sekund: %02i", rtc.getSecond());LcdString(cha);
+  sprintf (cha, "%02i/%02i/2016", rtc.getDay(), rtc.getMonth());LcdString(cha);
 
   gotoXY(0,5);
   sprintf (cha, "%02i'C | %02i%%", (int)(dht.readTemperature()), (int)(dht.readHumidity()));LcdString(cha);
@@ -129,7 +133,6 @@ void showMenu(){
   if (isRight()) pos_menu=2;
   if (isLeft()) pos_menu=1;
 }
-
 void setClock(bool isClock){
   char hh[3];
   if (isClock)
@@ -141,6 +144,11 @@ void setClock(bool isClock){
     sprintf(mm, "%02i", rtc.getMinute());
   else
     sprintf(mm, "%02i", alarm.m);
+  char day[3]; char month[3];
+  if (isClock){
+    sprintf(day,   "%02i", rtc.getDay());
+    sprintf(month, "%02i", rtc.getMonth());   
+  }
 
   if (modechanged){
     if (isClock){ sprintf(cha, " Ustaw czas ");}
@@ -159,26 +167,45 @@ void setClock(bool isClock){
   LcdString(mm,(pos_setClock==1));
   gotoXY(70,1);
   sprintf(cha, "OK");LcdString(cha,(pos_setClock==2));  
-  
+
+  if (isClock){
+    gotoXY(0,2);
+    LcdString(day,(pos_setClock==3));
+    gotoXY(15,2);
+    sprintf(cha, "/"); LcdString(cha, false);
+    gotoXY(20,2);
+    LcdString(month,(pos_setClock==4));
+    gotoXY(35,2);
+    sprintf(cha, "/2016");LcdString(cha);  
+  }
+
   if (modechanged){
     gotoXY(0,3);
-    sprintf(cha, "<> poprz/nast");LcdString(cha);
-    gotoXY(0,4);
-    sprintf(cha, "^v wart +/-");LcdString(cha);
-    gotoXY(0,5);
     sprintf(cha, EMPTY_LINE);LcdString(cha, false);
+    gotoXY(0,4);
+    sprintf(cha, "<> poprz/nast");LcdString(cha);
+    gotoXY(0,5);
+    sprintf(cha, "^v wart +/-");LcdString(cha);
     
     modechanged=false;
   }
   
   if (isClock){
     if (pos_setClock==0){
-      if (isUp())  rtc.setTime(obetnij(rtc.getHour()+1, 23), rtc.getMinute(), rtc.getSecond());
+      if (isUp())   rtc.setTime(obetnij(rtc.getHour()+1, 23), rtc.getMinute(), rtc.getSecond());
       if (isDown()) rtc.setTime(obetnij(rtc.getHour()-1, 23), rtc.getMinute(), rtc.getSecond());
     }
     if (pos_setClock==1){
-      if (isUp())  rtc.setTime(rtc.getHour(), obetnij(rtc.getMinute()+1,59), rtc.getSecond());
+      if (isUp())   rtc.setTime(rtc.getHour(), obetnij(rtc.getMinute()+1,59), rtc.getSecond());
       if (isDown()) rtc.setTime(rtc.getHour(), obetnij(rtc.getMinute()-1,59), rtc.getSecond());   
+    }
+    if (pos_setClock==3){
+      if (isUp())   rtc.setDate(obetnij(rtc.getDay()+1,31), 1, rtc.getMonth(), 21, 16);
+      if (isDown()) rtc.setDate(obetnij(rtc.getDay()-1,31), 1, rtc.getMonth(), 21, 16);
+    }
+    if (pos_setClock==4){
+      if (isUp())   rtc.setDate(rtc.getDay(), 1, obetnij(rtc.getMonth()+1,12), 21, 16);   
+      if (isDown()) rtc.setDate(rtc.getDay(), 1, obetnij(rtc.getMonth()-1,12), 21, 16);   
     }
   }
   else{
@@ -190,7 +217,6 @@ void setClock(bool isClock){
       if (isUp())   alarm.m = obetnij(alarm.m+1,59);
       if (isDown()) alarm.m = obetnij(alarm.m-1,59);
     }    
-    alarmTmp = alarm;
   }
   
   if (pos_setClock==2){
@@ -201,12 +227,19 @@ void setClock(bool isClock){
       return;
     }
   }
-  
+
+  alarmTmp = alarm;
   
   if (isRight())  pos_setClock++;
-  if (isLeft()) pos_setClock--;
-  if (pos_setClock>2) pos_setClock=0;
-  if (pos_setClock<0) pos_setClock=2;
+  if (isLeft())   pos_setClock--;
+  if (isClock){
+    if (pos_setClock>4) pos_setClock=0;
+    if (pos_setClock<0) pos_setClock=4;
+  }
+  else {
+    if (pos_setClock>2) pos_setClock=0;
+    if (pos_setClock<0) pos_setClock=2;
+  }
 }
 
 void setDisplay(){
@@ -240,8 +273,8 @@ void setDisplay(){
     if (isDown()) { contrast_val=obetnij(contrast_val-1, 5, true); LcdInitialise(); }
   }
   else if (pos_setDisp==1){
-    if (isUp())   { jasnosc_val=obetnij(jasnosc_val+1, 10); analogWrite(11, 10*jasnosc_val); }
-    if (isDown()) { jasnosc_val=obetnij(jasnosc_val-1, 10); analogWrite(11, 10*jasnosc_val); }
+    if (isUp())   { jasnosc_val=obetnij(jasnosc_val+1, 33); analogWrite(11, 3*jasnosc_val); }
+    if (isDown()) { jasnosc_val=obetnij(jasnosc_val-1, 33); analogWrite(11, 3*jasnosc_val); }
   }
   if (pos_setDisp==2){
     if (isPressed()) {

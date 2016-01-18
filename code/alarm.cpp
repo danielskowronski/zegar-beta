@@ -27,13 +27,14 @@ void parseAlarm(){
     alarmINT=true;
     alarmACTIVE=true;
   }
-  if (!alarmCOMPLETED/* || alarmSNOOZE*/){
+  if (alarmACTIVE&&!alarmCOMPLETED/* || alarmSNOOZE*/){
     analogWrite(LCD_BACKLIGHT, 255);
     delay(25);
     analogWrite(LCD_BACKLIGHT, 20);
+    delay(25);
   }
   else{
-    analogWrite(LCD_BACKLIGHT, jasnosc_val*10);
+    analogWrite(LCD_BACKLIGHT, jasnosc_val*3);
     alarmACTIVE=false;
     alarmINT=false;
   }

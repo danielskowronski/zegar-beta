@@ -12,8 +12,8 @@ void setup(void) {
   LcdClear();
 
   rtc.initClock();
-  rtc.setDate(30, 1, 12, 0, 15);
-  rtc.setTime(0, 1, 59);
+  rtc.setDate(18, 1, 01, 21, 16);
+  rtc.setTime(23, 12, 59);
   
   alarm = alarmTmp = timeObj(0,1);
   enableAlarm();
@@ -43,5 +43,5 @@ void loop(void){
   else if (mode==4) 
      setDisplay(); 
   
-  delay(75);
+  delay(125);
 }
