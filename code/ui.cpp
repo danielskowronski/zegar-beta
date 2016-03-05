@@ -85,9 +85,12 @@ void displayClock(){
   }
   if (isLeft()&&isDown()){
     if (alarmACTIVE) alarmCOMPLETED=true;
-    else  disableAlarm();
+    else disableAlarm();
     alarmSNOOZE=false;
     alarmTmp=alarm;
+    alarmINT=false;
+    alarmACTIVE=false;
+    alarmENABLED=false;
   }
 }
 
