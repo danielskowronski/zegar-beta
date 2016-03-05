@@ -17,6 +17,7 @@ extern bool modechanged;
 extern int pos_menu, pos_setClock, pos_setDisp;
 
 extern bool PAR;
+extern int lastsec;
 
 void displayClock();
 void showMenu();

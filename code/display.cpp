@@ -23,8 +23,8 @@ void LcdInitialise(void) {
   digitalWrite(LCD_PIN_RESET, LOW);
   digitalWrite(LCD_PIN_RESET, HIGH);
   LcdWrite(LCD_C, 0x21 );  // LCD Extended Commands.
-  LcdWrite(LCD_C, 0xBA+contrast_val+7 );  // Set LCD Vop (Contrast). 
-  LcdWrite(LCD_C, 0x04 );  // Set Temp coefficent. //0x04
+  LcdWrite(LCD_C, 0xC0+contrast_val );  // Set LCD Vop (Contrast). 
+  LcdWrite(LCD_C, 0x07 );  // Set Temp coefficent. //0x04
   LcdWrite(LCD_C, 0x13 );  // LCD bias mode 1:48. //0x13
   LcdWrite(LCD_C, 0x20 );  // LCD Basic Commands
   LcdWrite(LCD_C, 0x0C );  // LCD in normal mode.

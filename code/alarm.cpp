@@ -10,7 +10,7 @@ void timeObj::addMinutes(int n){
     m-=60;
     h++;
   }
-  h&=24;
+  h%=24; //there was &= instead of %= - tiny typo that caused snooze (only func that uses addMinutes) not to work
 }
 
 extern bool budzik=false;
@@ -27,21 +27,16 @@ void parseAlarm(){
     alarmINT=true;
     alarmACTIVE=true;
   }
-  if (alarmACTIVE&&!alarmCOMPLETED/* || alarmSNOOZE*/){
+  if (alarmINT/* || alarmSNOOZE*/){
     analogWrite(LCD_BACKLIGHT, 255);
     delay(25);
     analogWrite(LCD_BACKLIGHT, 20);
     delay(25);
   }
   else{
-    analogWrite(LCD_BACKLIGHT, jasnosc_val*3);
+    analogWrite(LCD_BACKLIGHT, jasnosc_val*2);
     alarmACTIVE=false;
     alarmINT=false;
-  }
-
-  if (!alarmSNOOZE){
-    alarmTmp=alarm;
-    delay(10);
   }
 }
 

@@ -12,10 +12,10 @@ void setup(void) {
   LcdClear();
 
   rtc.initClock();
-  rtc.setDate(18, 1, 01, 21, 16);
-  rtc.setTime(23, 12, 59);
+  rtc.setDate(5, 3, 03, 21, 16);
+  rtc.setTime(21, 25, 59);
   
-  alarm = alarmTmp = timeObj(0,1);
+  alarm = alarmTmp = timeObj(21,26);
   enableAlarm();
 
   dht.begin();
@@ -30,7 +30,7 @@ void setup(void) {
 void loop(void){    
   readJoystick();
   parseAlarm();
-  transmitThm();
+  //transmitThm();//not usable now
   
   if (mode==0)
     displayClock();

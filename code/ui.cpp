@@ -24,22 +24,18 @@ extern bool modechanged=false;
 extern int pos_menu=0, pos_setClock=0, pos_setDisp=0;
 
 extern bool PAR = true;
+extern int lastsec = 0;
 
 void displayClock(){
   PAR = not PAR;
   
   char* clock = rtc.formatTime(); int p=-14/*+7*/;
-  LcdCharacterBig(p+=14,0,clock[0],false);delay(10);
-  LcdCharacterBig(p+=14,0,clock[1],false);delay(10);
-  LcdCharacterBig(p+=14,0,'-',false);delay(10);
-  LcdCharacterBig(p+=14,0,clock[3],false);delay(10);
-  LcdCharacterBig(p+=14,0,clock[4],false);delay(10);
+  LcdCharacterBig(p+=14,0,clock[0],false);
+  LcdCharacterBig(p+=14,0,clock[1],false);
+  LcdCharacterBig(p+=14,0,'-',false);
+  LcdCharacterBig(p+=14,0,clock[3],false);
+  LcdCharacterBig(p+=14,0,clock[4],false);
   
-  //gotoXY(0,3);
-  //sprintf (cha, "fm: %06i", freeMemory());LcdString(cha);
-
-  //gotoXY(77,1); sprintf (cha, "%01i", rtc.getSecond()/10);LcdString(cha);
-  //gotoXY(77,2); sprintf (cha, "%01i", rtc.getSecond()%10);LcdString(cha);
   gotoXY(70,2); sprintf (cha, "%02i", rtc.getSecond());LcdString(cha,true);
   
   gotoXY(0,4);
@@ -91,6 +87,7 @@ void displayClock(){
     if (alarmACTIVE) alarmCOMPLETED=true;
     else  disableAlarm();
     alarmSNOOZE=false;
+    alarmTmp=alarm;
   }
 }
 
@@ -269,12 +266,12 @@ void setDisplay(){
   }
   
   if (pos_setDisp==0){
-    if (isUp())  { contrast_val=obetnij(contrast_val+1, 5, true); LcdInitialise(); }
-    if (isDown()) { contrast_val=obetnij(contrast_val-1, 5, true); LcdInitialise(); }
+    if (isUp())  { contrast_val=obetnij(contrast_val+1, 10, true); LcdInitialise(); }
+    if (isDown()) { contrast_val=obetnij(contrast_val-1, 10, true); LcdInitialise(); }
   }
   else if (pos_setDisp==1){
-    if (isUp())   { jasnosc_val=obetnij(jasnosc_val+1, 33); analogWrite(11, 3*jasnosc_val); }
-    if (isDown()) { jasnosc_val=obetnij(jasnosc_val-1, 33); analogWrite(11, 3*jasnosc_val); }
+    if (isUp())   { jasnosc_val=obetnij(jasnosc_val+1, 50); analogWrite(11, jasnosc_val); }
+    if (isDown()) { jasnosc_val=obetnij(jasnosc_val-1, 50); analogWrite(11, jasnosc_val); }
   }
   if (pos_setDisp==2){
     if (isPressed()) {
